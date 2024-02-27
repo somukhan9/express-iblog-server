@@ -39,3 +39,27 @@ export const uploadOnCloudinary = async (
     return null
   }
 }
+
+/**
+ * FUNCTION for deleting file from cloudinary
+ */
+export const deleteFromCloudinary = async (publicId: string) => {
+  try {
+    if (!publicId) return null
+
+    const response = await cloudinary.uploader.destroy(publicId, {
+      type: "upload",
+    })
+
+    // console.log(response)
+
+    return response
+
+    // this comment is added for making some space between try and catch portion
+  } catch (error) {
+    console.log(`ERROR: While uploading file to "Cloudinary"\n\n\n`)
+    console.error(error)
+    // fs.unlinkSync(localFilePath)
+    return null
+  }
+}

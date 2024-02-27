@@ -8,11 +8,16 @@ import {
   getCurrentUserDetails,
   changePassword,
   demo,
+  forgotPassword,
+  resetPassword,
+  updateProfile,
+  updateAvatar,
+  updateCoverImage,
 } from "../controllers/user.controller"
 
-import { upload } from "./../middlewares/multer.middleware"
 import { verifyAccessToken } from "../middlewares/auth.middleware"
-import { cleanUpFilesFromServer } from "../middlewares/cleanup.middleware"
+
+import { upload } from "./../middlewares/multer.middleware"
 
 const userRouter = Router()
 
@@ -35,6 +40,20 @@ userRouter.route("/profile").get(verifyAccessToken, getCurrentUserDetails)
 userRouter
   .route("/change-password")
   .post(verifyAccessToken, upload.any(), changePassword)
+
+userRouter.route("/forgot-password").post(forgotPassword)
+
+userRouter.route("/reset-password/:token").get(resetPassword)
+
+userRouter.route("/update-profile").patch(verifyAccessToken, updateProfile)
+
+userRouter
+  .route("/update-avatar")
+  .patch(verifyAccessToken, upload.single("avatar"), updateAvatar)
+
+userRouter
+  .route("/update-coverImage")
+  .patch(verifyAccessToken, upload.single("coverImage"), updateCoverImage)
 
 // Only for testing of some corner case
 userRouter.route("/demo").post(upload.single("demo"), demo)

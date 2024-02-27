@@ -16,10 +16,9 @@ export const errorHandlerMiddleware = (
   console.log(err.name)
 
   /**
-   * Handling Zod Validation Error
+   * Handling Validation Error (Zod Schema Validation)
    */
   if (err.name === "ZodError") {
-    // console.log(`From Zod Validation`)
     errors = Object.entries(err.errors).map((item: any) => ({
       path: item[1].path[0],
       message: item[1].message,
@@ -27,6 +26,25 @@ export const errorHandlerMiddleware = (
 
     message = errors.map((item: any) => `${item.message}`).join(", ")
     statusCode = httpStatus.BAD_REQUEST
+
+    return res.status(statusCode).json({
+      statusCode,
+      message,
+      success: false,
+      errors,
+    })
+  }
+
+  /**
+   * Handling Validation Error (Mongoose Schema Validation)
+   */
+  if (err.name === "ValidationError") {
+    statusCode = httpStatus.BAD_REQUEST
+
+    let testMessage: any = Object.entries(errors)[0][1]
+    message = Object.values(testMessage)
+      .map((item: any) => item.message)
+      .join(", ")
 
     return res.status(statusCode).json({
       statusCode,
@@ -64,8 +82,6 @@ export const errorHandlerMiddleware = (
       testMessage = Object.entries(testMessage)[0]
       message = `"${testMessage[1]}" has already taken as ${testMessage[0]}`
 
-      // console.log(message)
-
       return res.status(statusCode).json({
         statusCode,
         message,
@@ -80,8 +96,6 @@ export const errorHandlerMiddleware = (
    */
   if (err.name === "TokenExpiredError") {
     statusCode = httpStatus.UNAUTHORIZED
-    // testMessage = Object.values(err)[Object.values(err).length - 1]
-    // testMessage = Object.entries(testMessage)[0]
     message = `Token has been expired`
 
     return res.status(statusCode).json({
@@ -97,9 +111,6 @@ export const errorHandlerMiddleware = (
    */
   if (err.name === "JsonWebTokenError") {
     statusCode = httpStatus.BAD_REQUEST
-    // testMessage = Object.values(err)[Object.values(err).length - 1]
-    // testMessage = Object.entries(testMessage)[0]
-    // message = `"${testMessage[1]}" has already taken as ${testMessage[0]}`
 
     return res.status(statusCode).json({
       statusCode,

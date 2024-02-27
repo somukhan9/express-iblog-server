@@ -1,17 +1,27 @@
 import mongoose from "mongoose"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
+import crypto from "crypto"
 
-import { uploadOnCloudinary } from "../utils/cloudinary"
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary"
 
 type User = {
   name: string
   username: string
   email: string
   password: string
-  avatar: string
-  coverImage: string
+  avatar: {
+    publicId: string
+    url: string
+  }
+  coverImage: {
+    publicId: string
+    url: string
+  }
   refreshToken: string
+  role: string
+  resetPasswordToken: string
+  resetPasswordTokenExpiry: Date
 }
 
 const userSchema = new mongoose.Schema<User>(
@@ -39,9 +49,6 @@ const userSchema = new mongoose.Schema<User>(
     avatar: {
       publicId: String,
       url: String,
-
-      // required: [true, "Please give an profile image"],
-      // Manually made it required
     },
     coverImage: {
       publicId: String,
@@ -50,6 +57,13 @@ const userSchema = new mongoose.Schema<User>(
     refreshToken: {
       type: String,
     },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+    resetPasswordToken: String,
+    resetPasswordTokenExpiry: Date,
   },
   { timestamps: true },
 )
@@ -79,6 +93,10 @@ userSchema.method("uploadAvatar", async function (avatarLocalFilePath: string) {
   this.avatar.url = response!.secure_url
 })
 
+userSchema.method("deleteAvatar", async function () {
+  await deleteFromCloudinary(this.avatar.publicId)
+})
+
 userSchema.method(
   "uploadCoverImage",
   async function (coverImageLocalFilePath: string) {
@@ -93,6 +111,10 @@ userSchema.method(
     this.coverImage.url = response!.secure_url
   },
 )
+
+userSchema.method("deleteCoverImage", async function () {
+  await deleteFromCloudinary(this.coverImage.publicId)
+})
 
 userSchema.method("generateAccessToken", function (userId: string) {
   const accessToken = jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET!, {
@@ -110,6 +132,17 @@ userSchema.method("generateRefreshToken", function (userId: string) {
   this.refreshToken = refreshToken
 
   return refreshToken
+})
+
+userSchema.method("generateResetPasswordToken", function () {
+  const resetToken = crypto.randomBytes(20).toString("hex")
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex")
+  this.resetPasswordTokenExpiry = new Date(Date.now() + 15 * 60 * 1000)
+
+  return resetToken
 })
 
 export const User = mongoose.model("User", userSchema)

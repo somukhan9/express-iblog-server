@@ -6,7 +6,7 @@ import { asyncWrapper } from "../utils/async-wrapper"
 import { createApiError } from "../utils/ApiError"
 import { User } from "../models/user.model"
 
-export const verifyAccessToken = asyncWrapper(
+const verifyAccessToken = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const accessToken =
       req.cookies?.accessToken ||
@@ -44,3 +44,38 @@ export const verifyAccessToken = asyncWrapper(
     next()
   },
 )
+
+const authorizeRole = (...roles: any) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // @ts-ignore
+    const userId = req.userId
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return next(
+        createApiError(
+          "Token is invalid or has been expired",
+          httpStatus.UNAUTHORIZED,
+          null,
+          [],
+        ),
+      )
+    }
+
+    // @ts-ignore
+    if (!roles.includes(user.role)) {
+      return next(
+        createApiError(
+          "Your are not authorized for this route",
+          httpStatus.FORBIDDEN,
+          null,
+          [],
+        ),
+      )
+    }
+
+    next()
+  }
+}
+
+export { verifyAccessToken, authorizeRole }

@@ -29,11 +29,13 @@ app.use(cookieParser())
  *  All the routes import
  */
 import { userRouter } from "./routes/user.route"
+import { adminRouter } from "./routes/admin.route"
 
 /**
  *  Add all the valid routes here
  */
 app.use("/api/v1/user", userRouter)
+app.use("/api/v1/admin", adminRouter)
 
 /**
  *  Cleanup files middleware

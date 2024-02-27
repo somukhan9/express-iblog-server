@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express"
 import httpStatus from "http-status"
 import jwt from "jsonwebtoken"
 
+import crypto from "crypto"
+
 import { asyncWrapper } from "../utils/async-wrapper"
 
 import {
@@ -12,11 +14,12 @@ import {
 import { createApiError } from "../utils/ApiError"
 import { User } from "../models/user.model"
 import { createApiResponse } from "../utils/ApiResponse"
+import { sendEmail } from "../utils/send-email"
 
 /**
  * Signup Controller
  */
-export const signup = asyncWrapper(
+const signup = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const validUserData = userValidationSchema.parse(req.body)
 
@@ -55,26 +58,16 @@ export const signup = asyncWrapper(
       // @ts-ignore
     } = user._doc
 
-    // @ts-ignore
-    const accessToken = user.generateAccessToken(user._id)
-
-    // @ts-ignore
-    const refreshToken = user.generateRefreshToken(user._id)
-
     await user.save({ validateBeforeSave: false })
-
-    const cookieOptions = { httpOnly: true, secure: true }
 
     res
       .status(httpStatus.CREATED)
-      .cookie("accessToken", accessToken, cookieOptions)
-      .cookie("refreshToken", refreshToken, cookieOptions)
       .json(
         createApiResponse(
           "User created successfully",
           httpStatus.CREATED,
           true,
-          { ...restOfUser, accessToken, refreshToken },
+          { ...restOfUser },
         ),
       )
   },
@@ -83,7 +76,7 @@ export const signup = asyncWrapper(
 /**
  * Login Controller
  */
-export const login = asyncWrapper(
+const login = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { username, password } = loginValidationSchema.parse(req.body)
 
@@ -146,7 +139,7 @@ export const login = asyncWrapper(
 /**
  * Logout Controller
  */
-export const logout = asyncWrapper(
+const logout = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     await User.findByIdAndUpdate(
       // @ts-ignore
@@ -179,7 +172,7 @@ export const logout = asyncWrapper(
 /**
  * Refresh Token Controller
  */
-export const refreshToken = asyncWrapper(
+const refreshToken = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const incomingRefreshToken =
       req.cookies.refreshToken || req.body.refreshToken
@@ -237,7 +230,7 @@ export const refreshToken = asyncWrapper(
 /**
  * Get Current User Details Controller
  */
-export const getCurrentUserDetails = asyncWrapper(
+const getCurrentUserDetails = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     // @ts-ignore
     const user = await User.findById(req.userId)
@@ -261,7 +254,7 @@ export const getCurrentUserDetails = asyncWrapper(
 /**
  * Change Password Controller
  */
-export const changePassword = asyncWrapper(
+const changePassword = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { password, retypePassword } = req.body
 
@@ -296,7 +289,7 @@ export const changePassword = asyncWrapper(
 
     user.password = password
 
-    user.save({ validateBeforeSave: false })
+    await user.save({ validateBeforeSave: false })
 
     res
       .status(httpStatus.OK)
@@ -311,8 +304,311 @@ export const changePassword = asyncWrapper(
   },
 )
 
+/**
+ * Forgot Password Controller
+ */
+const forgotPassword = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body
+
+    if (!email) {
+      return next(
+        createApiError(
+          "Please enter your email address",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    const user = await User.findOne({ email })
+
+    if (!user) {
+      return next(
+        createApiError(
+          "user doesn't exist with this email",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    // @ts-ignore
+    const resetToken = user.generateResetPasswordToken()
+    await user.save({ validateBeforeSave: false })
+
+    const resetPasswordUrl = `${req.protocol}://${req.hostname}/user/reset-password/${resetToken}`
+
+    const message = `Your password reset token is :- \n\n ${resetPasswordUrl} \n\nIf you have not requested this email, please ignore it.`
+
+    try {
+      // TODO: send email
+      const options = {
+        email,
+        subject: `iBlog Reset Password`,
+        message,
+      }
+      sendEmail(options)
+      console.log(message)
+      return res
+        .status(httpStatus.OK)
+        .json(
+          createApiResponse(
+            "Password reset link has been sent to your email",
+            httpStatus.OK,
+            true,
+            null,
+          ),
+        )
+    } catch (error) {
+      // Take necessary steps if email is not sent
+      console.error(`Error while sending reset password email: \n\n${error}`)
+      await User.findOneAndUpdate(
+        { email },
+        {
+          $unset: {
+            resetPasswordToken: 1,
+            resetPasswordTokenExpiry: 1,
+          },
+        },
+        { new: true },
+      )
+      return next(
+        createApiError(
+          "Email could not be sent. Please check your credentials",
+          httpStatus.INTERNAL_SERVER_ERROR,
+          null,
+          error,
+        ),
+      )
+    }
+  },
+)
+
+/**
+ * Reset Password Controller
+ */
+const resetPassword = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { token } = req.params
+    const { password, retypePassword } = req.body
+
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex")
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordTokenExpiry: { $gt: Date.now() },
+    })
+
+    if (!user) {
+      return next(
+        createApiError(
+          "Reset password token is invalid or has been expired",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    if (!password || password.length < 6) {
+      return next(
+        createApiError(
+          "Password must of 6 characters at least",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    if (password !== retypePassword) {
+      return next(
+        createApiError(
+          "Passwords did not match",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    user.password = password
+    await user.save({ validateBeforeSave: false })
+
+    await user.updateOne({
+      $unset: { resetPasswordToken: 1, resetPasswordTokenExpiry: 1 },
+    })
+
+    res
+      .status(httpStatus.OK)
+      .json(
+        createApiResponse(
+          "Password has been reset successfully. You can now login",
+          httpStatus.OK,
+          true,
+          null,
+        ),
+      )
+  },
+)
+
+/**
+ * Update profile controller
+ */
+const updateProfile = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    // @ts-ignore
+    const userId = req.userId
+    // const user = await User.findById(userId)
+
+    const { name, username, email } = req.body
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          name,
+          username,
+          email,
+        },
+      },
+      { new: true, runValidators: true },
+    )
+
+    // @ts-ignore
+    const { password, refreshToken, __v, ...restOfUser } = updatedUser._doc
+
+    res.status(httpStatus.OK).json(
+      createApiResponse("Profile updated successfully", httpStatus.OK, true, {
+        ...restOfUser,
+      }),
+    )
+  },
+)
+
+/**
+ * Update Avatar
+ */
+const updateAvatar = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    // @ts-ignore
+    const userId = req.userId
+    const avatar = req.file?.path
+
+    if (!avatar) {
+      return next(
+        createApiError(
+          "Please select an profile image",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return next(
+        createApiError(
+          "Token is invalid or has been expired",
+          httpStatus.UNAUTHORIZED,
+          null,
+          [],
+        ),
+      )
+    }
+
+    // First deleting the existing one, then uploading the new one
+
+    // @ts-ignore
+    await user.deleteAvatar()
+
+    // @ts-ignore
+    await user.uploadAvatar(avatar)
+
+    await user.save({ validateBeforeSave: false })
+
+    res
+      .status(httpStatus.OK)
+      .json(
+        createApiResponse(
+          "Profile image updated successfully",
+          httpStatus.OK,
+          true,
+          null,
+        ),
+      )
+  },
+)
+
+/**
+ * Update Cover Image
+ */
+const updateCoverImage = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    // @ts-ignore
+    const userId = req.userId
+    const coverImage = req.file?.path
+
+    if (!coverImage) {
+      return next(
+        createApiError(
+          "Please select an cover image",
+          httpStatus.BAD_REQUEST,
+          null,
+          [],
+        ),
+      )
+    }
+
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return next(
+        createApiError(
+          "Token is invalid or has been expired",
+          httpStatus.UNAUTHORIZED,
+          null,
+          [],
+        ),
+      )
+    }
+
+    // First deleting the existing one, then uploading the new one
+
+    // @ts-ignore
+    await user.deleteCoverImage()
+
+    // @ts-ignore
+    await user.uploadCoverImage(coverImage)
+
+    await user.save({ validateBeforeSave: false })
+
+    res
+      .status(httpStatus.OK)
+      .json(
+        createApiResponse(
+          "Cover image updated successfully",
+          httpStatus.OK,
+          true,
+          null,
+        ),
+      )
+  },
+)
+
+/**
+ * Demo controller for testing of removing single file saved by multer
+ */
 import fs from "fs"
-export const demo = asyncWrapper(
+const demo = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     // console.log(req.file)
     // throw new Error("Intentional Error")
@@ -320,3 +616,21 @@ export const demo = asyncWrapper(
     res.send(req.file)
   },
 )
+
+/**
+ * Exporting all the controllers
+ */
+export {
+  signup,
+  login,
+  logout,
+  refreshToken,
+  getCurrentUserDetails,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  updateProfile,
+  updateAvatar,
+  updateCoverImage,
+  demo,
+}
