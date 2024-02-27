@@ -42,11 +42,9 @@ const signup = asyncWrapper(
 
     const user = await User.create({ ...validUserData })
 
-    // @ts-ignore
     await user.uploadAvatar(avatar)
 
     if (coverImage) {
-      // @ts-ignore
       await user.uploadCoverImage(coverImage)
     }
 
@@ -95,7 +93,6 @@ const login = asyncWrapper(
       )
     }
 
-    // @ts-ignore
     const isPasswordCorrect = existedUser.isPasswordCorrect(password)
 
     if (!isPasswordCorrect) {
@@ -112,10 +109,8 @@ const login = asyncWrapper(
       // @ts-ignore
     } = existedUser._doc
 
-    // @ts-ignore
     const accessToken = existedUser.generateAccessToken(existedUser._id)
 
-    // @ts-ignore
     const refreshToken = existedUser.generateRefreshToken(existedUser._id)
 
     await existedUser.save({ validateBeforeSave: false })
@@ -284,7 +279,12 @@ const changePassword = asyncWrapper(
     const user = await User.findById(req.userId)
     if (!user)
       return next(
-        createApiError("Invalid token", httpStatus.UNAUTHORIZED, null, []),
+        createApiError(
+          "Token is invalid or has been expired",
+          httpStatus.UNAUTHORIZED,
+          null,
+          [],
+        ),
       )
 
     user.password = password
@@ -335,7 +335,6 @@ const forgotPassword = asyncWrapper(
       )
     }
 
-    // @ts-ignore
     const resetToken = user.generateResetPasswordToken()
     await user.save({ validateBeforeSave: false })
 
@@ -465,7 +464,6 @@ const updateProfile = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     // @ts-ignore
     const userId = req.userId
-    // const user = await User.findById(userId)
 
     const { name, username, email } = req.body
 
@@ -493,7 +491,7 @@ const updateProfile = asyncWrapper(
 )
 
 /**
- * Update Avatar
+ * Update Avatar Controller
  */
 const updateAvatar = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -527,10 +525,8 @@ const updateAvatar = asyncWrapper(
 
     // First deleting the existing one, then uploading the new one
 
-    // @ts-ignore
     await user.deleteAvatar()
 
-    // @ts-ignore
     await user.uploadAvatar(avatar)
 
     await user.save({ validateBeforeSave: false })
@@ -549,7 +545,7 @@ const updateAvatar = asyncWrapper(
 )
 
 /**
- * Update Cover Image
+ * Update Cover Image Controller
  */
 const updateCoverImage = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -583,10 +579,8 @@ const updateCoverImage = asyncWrapper(
 
     // First deleting the existing one, then uploading the new one
 
-    // @ts-ignore
     await user.deleteCoverImage()
 
-    // @ts-ignore
     await user.uploadCoverImage(coverImage)
 
     await user.save({ validateBeforeSave: false })

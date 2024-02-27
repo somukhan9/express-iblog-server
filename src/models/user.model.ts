@@ -1,11 +1,11 @@
-import mongoose from "mongoose"
+import mongoose, { Document } from "mongoose"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import crypto from "crypto"
 
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary"
 
-type User = {
+interface IUser extends Document {
   name: string
   username: string
   email: string
@@ -22,9 +22,19 @@ type User = {
   role: string
   resetPasswordToken: string
   resetPasswordTokenExpiry: Date
+
+  // Schema Methods
+  isPasswordCorrect: (password: string) => boolean
+  uploadAvatar: (avatarLocalFilePath: string) => Promise<object>
+  deleteAvatar: () => Promise<object>
+  uploadCoverImage: (coverImageLocalFilePath: string) => Promise<object>
+  deleteCoverImage: () => Promise<object>
+  generateAccessToken: (userId: string) => string
+  generateRefreshToken: (userId: string) => string
+  generateResetPasswordToken: () => string
 }
 
-const userSchema = new mongoose.Schema<User>(
+const userSchema = new mongoose.Schema<IUser>(
   {
     name: {
       type: String,
@@ -77,7 +87,6 @@ userSchema.pre("save", function (next) {
 })
 
 userSchema.method("isPasswordCorrect", function (password: string) {
-  // @ts-ignore
   return bcrypt.compareSync(password, this.password)
 })
 
