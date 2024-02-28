@@ -6,7 +6,7 @@ import { createApiError } from "../utils/ApiError"
 import { createApiResponse } from "../utils/ApiResponse"
 import { Category } from "../models/category.model"
 
-const getCategories = asyncWrapper(
+const getAllCategories = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const categories = await Category.find({}).select("-__v")
 
@@ -44,7 +44,7 @@ const getSingleCategory = asyncWrapper(
       .status(httpStatus.OK)
       .json(
         createApiResponse(
-          "Fetched all the categories",
+          "Fetched single category successfully",
           httpStatus.OK,
           true,
           category,
@@ -168,7 +168,7 @@ const deleteCategory = asyncWrapper(
 )
 
 export {
-  getCategories,
+  getAllCategories,
   getSingleCategory,
   createCategory,
   updateCategory,

@@ -5,7 +5,7 @@ import {
   verifyAccessToken,
 } from "../middlewares/auth.middleware"
 import {
-  getCategories,
+  getAllCategories,
   getSingleCategory,
   createCategory,
   updateCategory,
@@ -20,7 +20,7 @@ const categoryRouter = Router()
 categoryRouter
   .route("/")
   .all(verifyAccessToken, authorizeRole("admin"))
-  .get(getCategories)
+  .get(getAllCategories)
   .post(createCategory)
 
 categoryRouter

@@ -31,6 +31,7 @@ app.use(cookieParser())
 import { userRouter } from "./routes/user.route"
 import { adminRouter } from "./routes/admin.route"
 import { categoryRouter } from "./routes/category.route"
+import { postRouter } from "./routes/post.route"
 
 /**
  *  Add all the valid routes here
@@ -39,6 +40,7 @@ app.use("/api/v1/user", userRouter)
 app.use("/api/v1/admin", adminRouter)
 // Can be accessed by only admin user
 app.use("/api/v1/categories", categoryRouter)
+app.use("/api/v1/posts", postRouter)
 
 /**
  *  Cleanup files middleware

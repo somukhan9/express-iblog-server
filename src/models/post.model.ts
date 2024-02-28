@@ -1,5 +1,6 @@
 import mongoose, { Document } from "mongoose"
 import slugify from "slugify"
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary"
 
 interface IPost extends Document {
   title: string
@@ -12,6 +13,10 @@ interface IPost extends Document {
   }
   createdBy: mongoose.Schema.Types.ObjectId
   category: mongoose.Schema.Types.ObjectId
+
+  // Schema methods
+  uploadFeaturedImage: (featuredImageLocalPath: string) => Promise<any>
+  deleteFeaturedImage: () => Promise<any>
 }
 
 const postSchema = new mongoose.Schema<IPost>(
@@ -23,13 +28,9 @@ const postSchema = new mongoose.Schema<IPost>(
     },
     slug: {
       type: String,
-      required: [true, "Post slug is required"],
       unique: true,
     },
-    summary: {
-      type: String,
-      required: [true, "Post summary is required"],
-    },
+    summary: { type: String },
     body: {
       type: String,
       required: [true, "Post body is required"],
@@ -45,6 +46,7 @@ const postSchema = new mongoose.Schema<IPost>(
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
+      required: [true, "Post category is required"],
     },
   },
   { timestamps: true },
@@ -55,6 +57,32 @@ postSchema.pre("save", function (next) {
 
   this.slug = slugify(this.title)
   next()
+})
+
+postSchema.pre("save", function (next) {
+  if (!this.isModified("body")) return next()
+
+  this.summary = this.body.substring(0, 200)
+  next()
+})
+
+postSchema.method(
+  "uploadFeaturedImage",
+  async function (featuredImageLocalPath: string) {
+    const response = await uploadOnCloudinary(
+      featuredImageLocalPath,
+      "express-blog/posts/featuredImages",
+    )
+
+    // @ts-ignore
+    this.featuredImage.publicId = response!.public_id
+    // @ts-ignore
+    this.featuredImage.url = response!.secure_url
+  },
+)
+
+postSchema.method("deleteFeaturedImage", async function () {
+  await deleteFromCloudinary(this.featuredImage.publicId)
 })
 
 export const Post = mongoose.model("Post", postSchema)

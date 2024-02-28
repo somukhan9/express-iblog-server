@@ -25,10 +25,10 @@ interface IUser extends Document {
 
   // Schema Methods
   isPasswordCorrect: (password: string) => boolean
-  uploadAvatar: (avatarLocalFilePath: string) => Promise<object>
-  deleteAvatar: () => Promise<object>
-  uploadCoverImage: (coverImageLocalFilePath: string) => Promise<object>
-  deleteCoverImage: () => Promise<object>
+  uploadAvatar: (avatarLocalFilePath: string) => Promise<any>
+  deleteAvatar: () => Promise<any>
+  uploadCoverImage: (coverImageLocalFilePath: string) => Promise<any>
+  deleteCoverImage: () => Promise<any>
   generateAccessToken: (userId: string) => string
   generateRefreshToken: (userId: string) => string
   generateResetPasswordToken: () => string

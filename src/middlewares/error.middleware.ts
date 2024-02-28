@@ -55,6 +55,30 @@ export const errorHandlerMiddleware = (
   }
 
   /**
+   * Handling CastError Error (Mongoose Schema Validation)
+   */
+  if (err.name === "CastError") {
+    statusCode = httpStatus.INTERNAL_SERVER_ERROR
+
+    let testMessage: any = JSON.parse(errors.stringValue)
+      .replace("{", "")
+      .replace("}", "")
+      .replace(":", "")
+      .replace("'", "")
+      .split(" ")
+      .filter((item: string) => !!item && item)
+
+    message = `${testMessage[0]} "${testMessage}" is not a valid identifier`
+
+    return res.status(statusCode).json({
+      statusCode,
+      message,
+      success: false,
+      errors,
+    })
+  }
+
+  /**
    * Handling errors which are thrown from ApiError class
    */
   if (err.name === "ApiError") {
