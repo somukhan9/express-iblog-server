@@ -14,6 +14,9 @@ import {
 
 const adminRouter = Router()
 
+/**
+ * Routes related to the User model
+ */
 adminRouter
   .route("/users")
   .get(verifyAccessToken, authorizeRole("admin"), getAllUser)

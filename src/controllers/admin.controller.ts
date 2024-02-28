@@ -102,4 +102,7 @@ const deleteUser = asyncWrapper(
   },
 )
 
+/**
+ * Exporting the controllers authorized for admin user  only
+ */
 export { getAllUser, getSingleUser, updateUserRole, deleteUser }

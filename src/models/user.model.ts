@@ -19,7 +19,7 @@ interface IUser extends Document {
     url: string
   }
   refreshToken: string
-  role: string
+  role: "user" | "admin"
   resetPasswordToken: string
   resetPasswordTokenExpiry: Date
 
